@@ -6,8 +6,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .serializer import RegisterSerializer, UserSerializer, LoginSerializer
-
+from .serializer import RegisterSerializer, UserSerializer, LoginSerializer, BookSerializer
+from db_connection import db
 # Create your views here.
 
 class Books(APIView):
@@ -36,13 +36,11 @@ class LoginApi(APIView):
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        print(serializer)
-        print(serializer.is_valid())
         if serializer.is_valid():
             username = serializer.validated_data['username']
             password = serializer.validated_data['password']
             user = authenticate(username=username,password=password)
-            print(user)
+
             if user:
                 refresh = RefreshToken.for_user(user)
                 return Response({
@@ -56,3 +54,26 @@ class LoginApi(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+
+class BookDetails(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    def post(self,request):
+        serializer = BookSerializer(data=request.data)
+        if serializer.is_valid():
+            book_data = serializer.validated_data
+            
+            # Access MongoDB using PyMongo
+            books_collection = db['Books']  # Collection name 'Books'
+            
+            # Insert book data into MongoDB
+            result = books_collection.insert_one(book_data)
+            
+            return Response(
+                {
+                    'message': 'Book added successfully',
+                    'book_id': str(result.inserted_id)  # MongoDB's _id is ObjectId, convert to string
+                },
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

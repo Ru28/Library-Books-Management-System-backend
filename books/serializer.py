@@ -14,12 +14,19 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self,validated_data):
         user = User.objects.create_user(username=validated_data['username'] ,email = validated_data['email'],password = validated_data['password'])
         return user
-
-class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(required=True)
-    password = serializers.CharField(required=True, write_only=True)
         
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+
+class BookSerializer(serializers.Serializer):
+    book_name = serializers.CharField(max_length=100)
+    book_title = serializers.CharField(max_length=100)
+    book_author = serializers.CharField(max_length=100)
+    book_description = serializers.CharField(max_length=500)
+    book_pages = serializers.IntegerField()
