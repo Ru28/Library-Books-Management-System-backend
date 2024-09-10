@@ -26,7 +26,7 @@ class LoginSerializer(serializers.Serializer):
 
 class BookSerializer(serializers.Serializer):
     book_name = serializers.CharField(max_length=100)
-    book_title = serializers.CharField(max_length=100)
     book_author = serializers.CharField(max_length=100)
     book_description = serializers.CharField(max_length=500)
     book_pages = serializers.IntegerField()
+    book_quantity = serializers.IntegerField()

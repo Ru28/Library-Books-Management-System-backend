@@ -63,16 +63,14 @@ class BookDetails(APIView):
         if serializer.is_valid():
             book_data = serializer.validated_data
             
-            # Access MongoDB using PyMongo
-            books_collection = db['Books']  # Collection name 'Books'
+            books_collection = db['Books']  
             
-            # Insert book data into MongoDB
             result = books_collection.insert_one(book_data)
             
             return Response(
                 {
                     'message': 'Book added successfully',
-                    'book_id': str(result.inserted_id)  # MongoDB's _id is ObjectId, convert to string
+                    'book_id': str(result.inserted_id) 
                 },
                 status=status.HTTP_201_CREATED
             )
