@@ -7,6 +7,8 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializer import RegisterSerializer, UserSerializer, LoginSerializer, BookSerializer
+from bson import ObjectId
+from datetime import datetime
 from db_connection import db
 # Create your views here.
 
@@ -75,3 +77,90 @@ class BookDetails(APIView):
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, book_id):
+        books_collection = db['Books']
+        
+        try:
+            object_id = ObjectId(book_id)
+        except Exception as e:
+            return Response({'error': 'Invalid book ID format'}, status=status.HTTP_400_BAD_REQUEST)
+
+        result = books_collection.delete_one({'_id': object_id})
+
+        if result.deleted_count > 0:
+            return Response({'message': 'Book removed successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class IssueBook(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        book_id = request.data.get('book_id')
+
+        books_collection = db['Books']
+        book = books_collection.find_one({'_id': ObjectId(book_id)})
+        if book:
+            if book['book_quantity'] > 0:
+                books_collection.update_one(
+                    {'_id': book_id},
+                    {'$inc': {'book_quantity': -1}}  
+                )
+                issued_books_collection = db['IssuedBooks']
+                issued_books_collection.insert_one({
+                    'user_id': user.id,
+                    'book_id': book_id,
+                    'book_name': book['book_name'],
+                    'issued_date': datetime.now()
+                })
+                return Response({'message': 'Book issued successfully'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'No copies available'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ReturnBook(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        book_id = request.data.get('book_id')
+
+        issued_books_collection = db['IssuedBooks']
+        issued_book = issued_books_collection.find_one({'user_id': user.id, 'book_id': book_id})
+        
+        if issued_book:
+            issued_books_collection.delete_one({'user_id': user.id, 'book_id': book_id})
+            
+            books_collection = db['Books']
+            books_collection.update_one(
+                {'_id': book_id},
+                {'$inc': {'book_quantity': +1}}
+            )
+            return Response({'message': 'Book returned successfully'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Issued book record not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ListIssuedBooks(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        issued_books_collection = db['IssuedBooks']
+
+        issued_books = issued_books_collection.find({'user_id': user.id})
+
+        issued_books_list = [
+            {
+                'book_name': book['book_name'],
+                'issued_date': book['issued_date'],
+                'book_id': book['book_id'],
+            }
+            for book in issued_books
+        ]
+        return Response({'issued_books': issued_books_list}, status=status.HTTP_200_OK)
